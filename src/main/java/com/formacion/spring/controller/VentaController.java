@@ -1,8 +1,10 @@
 package com.formacion.spring.controller;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
@@ -61,26 +63,38 @@ public class VentaController {
 	@PostMapping("ventas")
 	public ResponseEntity<?> save(@RequestBody Venta venta) {
 		Venta ventaNew = null;
-		Producto producto = null;
+		Set<Producto> productos = new HashSet<Producto>();
 		Map<String, Object> response = new HashMap<>();
+		float subtotal = 0;
+		int cantidad = 0;
 
 		try {
-			if (venta.getCantidad() > 0) {
-				if (venta.getIva() >= 0) {
-					ventaNew = servicio.guardarVenta(venta);
-					producto = servicioProducto.buscarProducto(venta.getProducto().getIdClave());
-					if (producto != null) {
-						ventaNew.setSubtotal(producto.getPrecio() * ventaNew.getCantidad());
-						ventaNew.setTotal((1 + ventaNew.getIva() / 100) * ventaNew.getSubtotal());
+			if (venta.getIva() >= 0) {
+				for (Producto producto2 : venta.getProducto()) {
+					if (servicioProducto.buscarProducto(producto2.getIdClave()) != null) {
+						productos.add(servicioProducto.buscarProducto(producto2.getIdClave()));
+						subtotal += servicioProducto.buscarProducto(producto2.getIdClave()).getPrecio();
+						cantidad++;
+					} else {
+						response.put("mensaje", "Error al añadir el producto" + producto2
+								+ "a la venta ya que no existe ese identificador de producto");
+						return new ResponseEntity<Map<String, Object>>(response, HttpStatus.BAD_REQUEST);
 					}
-				} else {
-					response.put("mensaje", "Error al añadir venta, " + venta.getIva() + " es una IVA no valido");
-					return new ResponseEntity<Map<String, Object>>(response, HttpStatus.BAD_REQUEST);
 				}
-			} else {
-				response.put("mensaje", "Error al añadir venta, " + venta.getCantidad() + " es una cantidad no valida");
-				return new ResponseEntity<Map<String, Object>>(response, HttpStatus.BAD_REQUEST);
+				venta.setProducto(productos);
+				// if (producto != null) {
 
+				// venta.setSubtotal(producto.getPrecio() * venta.getCantidad());
+				// venta.setTotal((1 + venta.getIva() / 100) * venta.getSubtotal());
+				venta.setSubtotal(subtotal);
+				venta.setTotal((1 + venta.getIva() / 100) * subtotal);
+				venta.setCantidad(cantidad);
+				ventaNew = servicio.guardarVenta(venta);
+
+				// }
+			} else {
+				response.put("mensaje", "Error al añadir venta, " + venta.getIva() + " es una IVA no valido");
+				return new ResponseEntity<Map<String, Object>>(response, HttpStatus.BAD_REQUEST);
 			}
 
 		} catch (DataAccessException e) {
@@ -100,6 +114,7 @@ public class VentaController {
 	public ResponseEntity<?> update(@PathVariable long id, @RequestBody Venta venta) {
 		Venta ventaUpdate = null;
 		Producto producto = null;
+		Set<Producto> productos = new HashSet<Producto>();
 
 		Map<String, Object> response = new HashMap<>();
 
@@ -107,16 +122,21 @@ public class VentaController {
 
 			if (servicio.buscarVenta(id) != null) {
 				ventaUpdate = servicio.buscarVenta(id);
-				producto = servicioProducto.buscarProducto(ventaUpdate.getProducto().getIdClave());
-
+				for (Producto producto2 : venta.getProducto()) {
+					if (servicioProducto.buscarProducto(producto2.getIdClave()) != null) {
+						productos.add(servicioProducto.buscarProducto(producto2.getIdClave()));
+					} else {
+						response.put("mensaje", "Error al añadir el producto" + producto2
+								+ "a la venta ya que no existe ese identificador de producto");
+						return new ResponseEntity<Map<String, Object>>(response, HttpStatus.BAD_REQUEST);
+					}
+				}
 				if (ventaUpdate.getCantidad() >= 0) {
 					if (ventaUpdate.getIva() >= 0) {
-
+						ventaUpdate.setProducto(productos);
 						ventaUpdate.setCantidad(venta.getCantidad());
 						ventaUpdate.setCliente(venta.getCliente());
 						ventaUpdate.setIva(venta.getIva());
-						ventaUpdate.setProducto(venta.getProducto());
-						ventaUpdate.setSubtotal(producto.getPrecio() * ventaUpdate.getCantidad());
 						ventaUpdate.setTotal((1 + ventaUpdate.getIva() / 100) * ventaUpdate.getSubtotal());
 					} else {
 						response.put("mensaje",
@@ -137,8 +157,7 @@ public class VentaController {
 
 			servicio.guardarVenta(ventaUpdate);
 
-		} catch (DataAccessException e) {
-			// si hay error desde la base de datos
+		} catch (DataAccessException e) { // si hay error desde la base de datos
 			response.put("mensaje", "Error al realizar update en la base de datos");
 			response.put("error", e.getMessage().concat(": ").concat(e.getMostSpecificCause().getMessage()));
 			return new ResponseEntity<Map<String, Object>>(response, HttpStatus.INTERNAL_SERVER_ERROR);

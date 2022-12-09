@@ -1,7 +1,9 @@
 package com.formacion.spring.entity;
 
 import java.io.Serializable;
+import java.util.Set;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -9,6 +11,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
+import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
 
@@ -45,16 +48,16 @@ public class Venta implements Serializable{
 	@JoinColumn(name="id_cliente")
 	private Cliente cliente;
 	
-	@OneToOne(fetch=FetchType.LAZY)
+
+	
+	@OneToMany(targetEntity = Producto.class, fetch = FetchType.EAGER,cascade = CascadeType.MERGE)	
 	@JsonIgnoreProperties({"hibernateLazyInitializer","handler"})
-	@JoinColumn(name="id_producto")
-	private Producto producto;
+	private Set<Producto> producto;
 
-
-	public Producto getProducto() {
+	public Set<Producto> getProducto() {
 		return producto;
 	}
-	public void setProducto(Producto producto) {
+	public void setProducto(Set<Producto>producto) {
 		this.producto = producto;
 	}
 	public Cliente getCliente() {
@@ -67,7 +70,7 @@ public class Venta implements Serializable{
 	public long getFolio() {
 		return folio;
 	}
-	public void setFolio(int folio) {
+	public void setFolio(long folio) {
 		this.folio = folio;
 	}
 	public int getCantidad() {
